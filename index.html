@@ -305,7 +305,12 @@
         <div class="sec-hdr"><div class="step-b">1</div><span>Datos administrativos</span></div>
         <div class="fields">
           <div class="field"><label>N° cotización</label><input id="f-num" value="COT-001"></div>
-          <div class="field"><label>Atendido por</label><select id="f-aten"><option>Camila</option><option>David</option></select></div>
+          <div class="field"><label>Atendido por</label><select id="f-aten">
+                  <option value="Camila Vargas">Camila Vargas</option>
+                  <option value="David Illesca">David Illesca</option>
+                  <option value="Miguel Polloni">Miguel Polloni</option>
+                  <option value="Rayen Illesca">Rayen Illesca</option>
+                </select></div>
         </div>
 
         <div class="sec-hdr"><div class="step-b">2</div><span>Datos del cliente</span>
@@ -736,12 +741,18 @@ const FERIADOS = {
 };
 const MAPS_URL = 'https://maps.app.goo.gl/Y9cq8iCpjM1HMEME8';
 const API = 'https://script.google.com/macros/s/AKfycbzNRkdWU6Sb7LgamMqWjtL2Zn8iR_vFgyoGh4RKM8VTwP4ncE81uHMmUZ_eKhxdrKLv/exec';
-// Credenciales — para cambiar: btoa('nuevaclave') en consola del navegador
+// Credenciales
 const USUARIOS = {
-  'david':  btoa('somoslosmejores'),
-  'camila': btoa('somoslosmejores'),
-  'miguel': btoa('somoslosmejores'),
-  'rayen':  btoa('somoslosmejores'),
+  'david':  btoa('somoslosmejores'),   // David Illesca
+  'camila': btoa('somoslosmejores'),   // Camila Vargas
+  'miguel': btoa('somoslosmejores'),   // Miguel Polloni
+  'rayen':  btoa('somoslosmejores'),   // Rayen Illesca
+};
+const NOMBRES_USUARIOS = {
+  'david':'David Illesca',
+  'camila':'Camila Vargas',
+  'miguel':'Miguel Polloni',
+  'rayen':'Rayen Illesca',
 };
 const GCAL_EMAIL = 'loscaneloseventos@gmail.com';
 
@@ -900,9 +911,10 @@ function doLogin(){
     document.getElementById('login-wrap').style.display='none';
     document.getElementById('app').style.display='flex';
     localStorage.setItem('cu',u);
-    document.getElementById('f-aten').value=u.charAt(0).toUpperCase()+u.slice(1);
     const navUser=document.getElementById('nav-user');
-    if(navUser)navUser.textContent='· '+u.charAt(0).toUpperCase()+u.slice(1);
+    const nombreCompleto=NOMBRES_USUARIOS[u]||u.charAt(0).toUpperCase()+u.slice(1);
+    if(navUser)navUser.textContent='· '+nombreCompleto;
+    document.getElementById('f-aten').value=nombreCompleto;
     iniciar();
   } else {
     document.getElementById('login-error').style.display='block';
@@ -914,40 +926,49 @@ window.onload=function(){
   if(u&&USUARIOS[u]){
     document.getElementById('login-wrap').style.display='none';
     document.getElementById('app').style.display='flex';
-    document.getElementById('f-aten').value=u.charAt(0).toUpperCase()+u.slice(1);
     const navUser=document.getElementById('nav-user');
-    if(navUser)navUser.textContent='· '+u.charAt(0).toUpperCase()+u.slice(1);
+    const nombreCompleto=NOMBRES_USUARIOS[u]||u.charAt(0).toUpperCase()+u.slice(1);
+    if(navUser)navUser.textContent='· '+nombreCompleto;
+    document.getElementById('f-aten').value=nombreCompleto;
     iniciar();
   }
 };
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 async function iniciar(){
-  // Cargar fechas bloqueadas predefinidas
+  // Fechas bloqueadas predefinidas
   BLOQUEADAS.forEach(b=>{
     if(!eventos.find(e=>e.fecha===b.fecha)){
-      eventos.push({fecha:b.fecha,tipo:b.tipo==='familiar'?'Evento familiar':b.tipo==='bloqueado'?'Bloqueado':'Evento corporativo',cliente:b.motivo});
+      eventos.push({
+        fecha:b.fecha,
+        tipo:b.tipo==='familiar'?'Evento familiar':b.tipo==='bloqueado'?'Bloqueado':'Evento corporativo',
+        cliente:b.motivo
+      });
     }
   });
-  renderAdic();calcular();renderCalendario();
-  
-  // Sincronizar y luego calcular el número de cotización correcto
+
+  // Render inicial mientras carga
+  renderAdic(); calcular(); renderCalendario();
+
+  // Sincronizar con Sheets — esto carga leads y eventos
   await syncSheets();
-  
-  // Calcular siguiente número de cotización basado en lo que ya existe en Sheets
-  const maxNum = leads.reduce((max,l)=>{
-    const match=(l.notas||'').match(/COT-(\d+)/);
-    const n=match?parseInt(match[1]):0;
-    return Math.max(max,n);
-  },0);
-  contadorCot = maxNum+1;
-  
-  // Actualizar el campo visible
-  const now=new Date();
-  const ddmm=String(now.getDate()).padStart(2,'0')+String(now.getMonth()+1).padStart(2,'0');
-  document.getElementById('f-num').value='COT-'+String(contadorCot).padStart(3,'0')+'-'+ddmm;
-  
-  setInterval(syncSheets, 120000); // cada 2 min
+
+  // Calcular siguiente N° cotización
+  let maxNum = 0;
+  leads.forEach(l=>{
+    const notas = l.notas || '';
+    const m = notas.match(/COT-0*([0-9]+)/);
+    if(m) maxNum = Math.max(maxNum, parseInt(m[1]));
+  });
+  contadorCot = maxNum + 1;
+
+  // Actualizar campo visible
+  const now = new Date();
+  const ddmm = String(now.getDate()).padStart(2,'0') + String(now.getMonth()+1).padStart(2,'0');
+  document.getElementById('f-num').value = 'COT-'+String(contadorCot).padStart(3,'0')+'-'+ddmm;
+
+  // Sincronizar cada 2 minutos
+  setInterval(syncSheets, 120000);
 }
 
 // ── API ────────────────────────────────────────────────────────────────────
@@ -971,49 +992,97 @@ async function apiCall(params){
   }
 }
 function normalizarLead(l){
-  // Asegura que todos los campos necesarios existen
+  // Parsear pagos de forma segura
+  let pagos = [];
+  if(Array.isArray(l.pagos)){
+    pagos = l.pagos;
+  } else if(typeof l.pagos === 'string' && l.pagos.trim().startsWith('[')){
+    try{ pagos = JSON.parse(l.pagos); }catch(e){ pagos = []; }
+  }
+
+  // Normalizar archivado (puede venir como string "true"/"false" desde Sheets)
+  const archivado = l.archivado==='true' || l.archivado===true;
+
+  // Normalizar monto
+  const monto = parseInt((l.monto||'0').toString().replace(/[^0-9]/g,''))||0;
+
+  // Estado válido
+  const estadosValidos = ['Primer contacto','Info enviada','Visita agendada',
+    'Cotizado','En negociación','Reservado','Perdido','Descartado'];
+  const estado = estadosValidos.includes(l.estado) ? l.estado : 'Primer contacto';
+
   return {
-    id: l.id || ('L-'+Date.now()),
-    nombre: l.nombre || '—',
-    tel: l.tel || '',
-    correo: l.correo || '',
-    rut: l.rut || '',
+    id: l.id || ('L-'+Date.now()+'-'+Math.random().toString(36).substr(2,4)),
+    nombre: (l.nombre||'').trim() || '—',
+    tel: (l.tel||'').toString().trim(),
+    correo: (l.correo||'').trim(),
+    rut: (l.rut||'').trim(),
     tipo: l.tipo || 'Matrimonio',
-    fecha: l.fecha || '',
+    fecha: (l.fecha||'').toString().trim(),
     canal: l.canal || 'WhatsApp',
-    estado: l.estado || 'Primer contacto',
-    monto: parseInt(l.monto)||0,
-    notas: l.notas || '',
-    pagos: Array.isArray(l.pagos)?l.pagos:(l.pagos?JSON.parse(l.pagos):[]),
-    archivado: l.archivado==='true'||l.archivado===true||false,
+    estado,
+    monto,
+    notas: (l.notas||'').trim(),
+    pagos,
+    archivado,
   };
 }
 
 async function syncSheets(){
   setSyncStatus('spin','Sincronizando...');
   try{
-    const data=await apiCall({action:'getAll'});
-    if(!data.error){
-      if(data.leads&&data.leads.length>0){
-        const leadsNorm=data.leads.map(normalizarLead);
-        // Reemplazar leads locales con los de Sheets (Sheets es la fuente de verdad)
-        leadsNorm.forEach(l=>{
-          const idx=leads.findIndex(x=>x.id===l.id);
-          if(idx>=0) leads[idx]=l;
-          else leads.push(l);
+    const data = await apiCall({action:'getAll'});
+
+    // Verificar que llegaron datos válidos
+    if(data && !data.error){
+
+      // LEADS: Sheets es la fuente de verdad — reemplazar completamente
+      if(data.leads && Array.isArray(data.leads) && data.leads.length>0){
+        const leadsDeSheets = data.leads
+          .filter(l => l && l.nombre) // solo filas con datos reales
+          .map(normalizarLead);
+
+        // Reemplazar leads locales con los de Sheets
+        leadsDeSheets.forEach(lSheet=>{
+          const idx = leads.findIndex(x=>x.id===lSheet.id);
+          if(idx>=0){
+            leads[idx] = lSheet;
+          } else {
+            leads.push(lSheet);
+          }
         });
+        console.log('Leads cargados desde Sheets:', leadsDeSheets.length);
       }
-      if(data.eventos&&data.eventos.length>0){
+
+      // EVENTOS: agregar los que no estén ya
+      if(data.eventos && Array.isArray(data.eventos)){
         data.eventos.forEach(e=>{
-          if(e.fecha&&!eventos.find(x=>x.fecha===e.fecha))
-            eventos.push({fecha:e.fecha,tipo:e.tipo||'Matrimonio',cliente:e.cliente||''});
+          if(e && e.fecha && !eventos.find(x=>x.fecha===e.fecha)){
+            eventos.push({
+              fecha: e.fecha,
+              tipo: e.tipo||'Matrimonio',
+              cliente: e.cliente||''
+            });
+          }
         });
       }
+
       setSyncStatus('ok','Conectado · Google Sheets');
-    } else { setSyncStatus('err','Sin conexión — modo local'); }
-  }catch(e){setSyncStatus('err','Sin conexión — modo local');}
-  renderKanban();renderCalendario();
-  if(document.getElementById('tab-resumen').classList.contains('active')) renderResumen();
+    } else {
+      setSyncStatus('err','Sin conexión — modo local');
+    }
+  } catch(e){
+    console.error('Sync error:', e);
+    setSyncStatus('err','Sin conexión — modo local');
+  }
+
+  // Siempre renderizar después de sync
+  renderKanban();
+  renderCalendario();
+  if(document.getElementById('r-panel-contratados') &&
+     !document.getElementById('r-panel-contratados').style.display){
+    renderResumen();
+  }
 }
 function setSyncStatus(s,l){document.getElementById('sync-dot').className='sync-dot '+s;document.getElementById('sync-lbl').textContent=l;}
 
