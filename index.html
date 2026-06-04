@@ -972,24 +972,36 @@ async function iniciar(){
 }
 
 // ── API ────────────────────────────────────────────────────────────────────
-async function apiCall(params){
-  try{
-    const url=API+'?'+new URLSearchParams(params).toString();
-    const r=await fetch(url,{
-      redirect:'follow',
-      mode:'cors',
-      headers:{'Content-Type':'application/json'}
-    });
-    if(!r.ok) return {error:'HTTP '+r.status};
-    return r.json();
-  }catch(e){
-    // CORS bloqueado desde servidor — usar modo no-cors como fallback
-    try{
-      const url2=API+'?'+new URLSearchParams(params).toString();
-      await fetch(url2,{redirect:'follow',mode:'no-cors'});
-      return {ok:true,fallback:true};
-    }catch(e2){return {error:e2.toString()};}
-  }
+function apiCall(params){
+  return new Promise((resolve)=>{
+    const cbName='cb_'+Date.now()+'_'+Math.floor(Math.random()*9999);
+    const timeout=setTimeout(()=>{
+      delete window[cbName];
+      const s=document.getElementById('jsonp_'+cbName);
+      if(s)s.remove();
+      resolve({error:'timeout'});
+    },12000);
+
+    window[cbName]=function(data){
+      clearTimeout(timeout);
+      delete window[cbName];
+      const s=document.getElementById('jsonp_'+cbName);
+      if(s)s.remove();
+      resolve(data);
+    };
+
+    const url=API+'?'+new URLSearchParams({...params,callback:cbName}).toString();
+    const script=document.createElement('script');
+    script.id='jsonp_'+cbName;
+    script.src=url;
+    script.onerror=()=>{
+      clearTimeout(timeout);
+      delete window[cbName];
+      script.remove();
+      resolve({error:'script_error'});
+    };
+    document.head.appendChild(script);
+  });
 }
 function normalizarLead(l){
   // Parsear pagos de forma segura
