@@ -862,14 +862,17 @@ function guardarSoloLead(){
   const lead={
     id:'L'+String(contadorLead++).padStart(3,'0'),
     nombre,
-    rut:document.getElementById('f-rut').value,
-    tel:document.getElementById('f-tel').value,
-    correo:document.getElementById('f-correo').value,
-    tipo:document.getElementById('f-tipo').value,
-    canal:document.getElementById('f-canal').value,
-    fecha:'',archivado:false,
+    rut:document.getElementById('f-rut').value||'',
+    tel:document.getElementById('f-tel').value||'',
+    correo:document.getElementById('f-correo').value||'',
+    tipo:document.getElementById('f-tipo').value||'Matrimonio',
+    canal:document.getElementById('f-canal').value||'WhatsApp',
+    fecha:'',
+    archivado:false,
     estado:'Primer contacto',
-    monto:0,notas:'',pagos:[],
+    monto:0,
+    notas:'',
+    pagos:[],
   };
   if(fechaEvento){
     const dd=fechaEvento.getDate(),mm=fechaEvento.getMonth()+1,aa=fechaEvento.getFullYear();
@@ -919,14 +922,31 @@ window.onload=function(){
 };
 
 // ── INIT ──────────────────────────────────────────────────────────────────
-function iniciar(){
+async function iniciar(){
   // Cargar fechas bloqueadas predefinidas
   BLOQUEADAS.forEach(b=>{
     if(!eventos.find(e=>e.fecha===b.fecha)){
       eventos.push({fecha:b.fecha,tipo:b.tipo==='familiar'?'Evento familiar':b.tipo==='bloqueado'?'Bloqueado':'Evento corporativo',cliente:b.motivo});
     }
   });
-  renderAdic();calcular();renderCalendario();syncSheets();
+  renderAdic();calcular();renderCalendario();
+  
+  // Sincronizar y luego calcular el número de cotización correcto
+  await syncSheets();
+  
+  // Calcular siguiente número de cotización basado en lo que ya existe en Sheets
+  const maxNum = leads.reduce((max,l)=>{
+    const match=(l.notas||'').match(/COT-(\d+)/);
+    const n=match?parseInt(match[1]):0;
+    return Math.max(max,n);
+  },0);
+  contadorCot = maxNum+1;
+  
+  // Actualizar el campo visible
+  const now=new Date();
+  const ddmm=String(now.getDate()).padStart(2,'0')+String(now.getMonth()+1).padStart(2,'0');
+  document.getElementById('f-num').value='COT-'+String(contadorCot).padStart(3,'0')+'-'+ddmm;
+  
   setInterval(syncSheets, 120000); // cada 2 min
 }
 
@@ -950,19 +970,50 @@ async function apiCall(params){
     }catch(e2){return {error:e2.toString()};}
   }
 }
+function normalizarLead(l){
+  // Asegura que todos los campos necesarios existen
+  return {
+    id: l.id || ('L-'+Date.now()),
+    nombre: l.nombre || '—',
+    tel: l.tel || '',
+    correo: l.correo || '',
+    rut: l.rut || '',
+    tipo: l.tipo || 'Matrimonio',
+    fecha: l.fecha || '',
+    canal: l.canal || 'WhatsApp',
+    estado: l.estado || 'Primer contacto',
+    monto: parseInt(l.monto)||0,
+    notas: l.notas || '',
+    pagos: Array.isArray(l.pagos)?l.pagos:(l.pagos?JSON.parse(l.pagos):[]),
+    archivado: l.archivado==='true'||l.archivado===true||false,
+  };
+}
+
 async function syncSheets(){
   setSyncStatus('spin','Sincronizando...');
   try{
     const data=await apiCall({action:'getAll'});
     if(!data.error){
-      if(data.leads&&data.leads.length>0) leads=[...leads,...data.leads.filter(l=>!leads.find(x=>x.id===l.id))];
+      if(data.leads&&data.leads.length>0){
+        const leadsNorm=data.leads.map(normalizarLead);
+        // Reemplazar leads locales con los de Sheets (Sheets es la fuente de verdad)
+        leadsNorm.forEach(l=>{
+          const idx=leads.findIndex(x=>x.id===l.id);
+          if(idx>=0) leads[idx]=l;
+          else leads.push(l);
+        });
+      }
       if(data.eventos&&data.eventos.length>0){
-        data.eventos.forEach(e=>{if(!eventos.find(x=>x.fecha===e.fecha))eventos.push(e);});
+        data.eventos.forEach(e=>{
+          if(e.fecha&&!eventos.find(x=>x.fecha===e.fecha))
+            eventos.push({fecha:e.fecha,tipo:e.tipo||'Matrimonio',cliente:e.cliente||''});
+        });
       }
       setSyncStatus('ok','Conectado · Google Sheets');
     } else { setSyncStatus('err','Sin conexión — modo local'); }
   }catch(e){setSyncStatus('err','Sin conexión — modo local');}
   renderKanban();renderCalendario();
+  if(document.getElementById('tab-resumen').classList.contains('active')) renderResumen();
 }
 function setSyncStatus(s,l){document.getElementById('sync-dot').className='sync-dot '+s;document.getElementById('sync-lbl').textContent=l;}
 
@@ -1202,10 +1253,18 @@ async function guardarCotizacion(){
   };
   const leadData={
     id:'L'+String(contadorLead++).padStart(3,'0'),
-    nombre,tel:cotizacion.tel,correo:cotizacion.correo,
-    tipo:cotizacion.tipo,fecha:d.fechaStr,
-    canal:cotizacion.canal,estado:'Cotizado',
-    monto:d.total,notas:`${d.plan.n} · ${d.inv} inv · ${num}`,pagos:[],
+    nombre,
+    tel:cotizacion.tel,
+    correo:cotizacion.correo,
+    rut:cotizacion.rut,
+    tipo:cotizacion.tipo,
+    fecha:d.fechaStr,
+    canal:cotizacion.canal,
+    estado:'Cotizado',
+    monto:d.total,
+    notas:d.plan.n+' · '+d.inv+' inv · '+num,
+    pagos:[],
+    archivado:false,
   };
   const btn=document.getElementById('btn-guardar');
   btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> Guardando...';
@@ -1343,7 +1402,7 @@ function generarPDF(){
     <div class="totales">
       <div class="total-row main"><span class="lbl">TOTAL CONTRATO</span><span class="val">${clp(d.total)}</span></div>
       <div class="total-row reserva"><span class="lbl">Reserva (${Math.round(d.plan.res*100)}%) — para confirmar la fecha</span><span class="val">${clp(d.reserva)}</span></div>
-      <div class="total-row saldo"><span class="lbl">Saldo pendiente (pagar 3 semanas antes)</span><span class="val">${clp(d.saldo)}</span></div>
+      <div class="total-row saldo"><span class="lbl">Saldo pendiente (pagar 3 semanas antes del evento)</span><span class="val">${clp(d.saldo)}</span></div>
     </div>
   </div>
 
@@ -1352,7 +1411,7 @@ function generarPDF(){
   <div class="condiciones">
     <strong>Condiciones generales</strong><br>
     • La reserva debe pagarse para bloquear y confirmar la fecha.<br>
-    • El saldo se cancela 3 semanas antes del evento.<br>
+    • El saldo se paga 3 semanas antes del evento.<br>
     • Transferencia bancaria sin recargo · Tarjeta de crédito: +3%.<br>
     • Precios en CLP. Cotización válida 10 días desde emisión.
   </div>
@@ -1364,7 +1423,7 @@ function generarPDF(){
 
   <div class="footer">SOCIEDAD COMERCIAL LOS CANELOS SPA · RUT: 77.064.654-5 · loscaneloseventos@gmail.com · loscaneloseventos.cl</div>
 </div>
-<scr'+'ipt>window.onload=function(){window.print();}<\/script>
+<scr'+'ipt>setTimeout(function(){window.print();},800);<\/script>
 <\/body><\/html>`;
 
   const win=window.open('','_blank','width=900,height=700');
