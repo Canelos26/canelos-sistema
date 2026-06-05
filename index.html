@@ -868,10 +868,13 @@ function cargarLead(id){
   toast('Lead "'+l.nombre+'" cargado en el formulario','verde');
 }
 function guardarSoloLead(){
-  const nombre=document.getElementById('f-nombre').value;
+  const nombre=document.getElementById('f-nombre').value.trim();
+  const tel=document.getElementById('f-tel').value.trim();
   if(!nombre){toast('Ingresa el nombre del cliente','rojo');return;}
+  if(nombre.length<3){toast('El nombre debe tener al menos 3 caracteres','rojo');return;}
+  if(!tel){toast('Ingresa un teléfono de contacto','rojo');return;}
   const lead={
-    id:'L'+String(contadorLead++).padStart(3,'0'),
+    id:'L-'+Date.now()+'-'+Math.random().toString(36).substr(2,4),
     nombre,
     rut:document.getElementById('f-rut').value||'',
     tel:document.getElementById('f-tel').value||'',
@@ -1106,7 +1109,14 @@ async function syncSheets(){
       // LEADS: Sheets es la fuente de verdad — reemplazar completamente
       if(data.leads && Array.isArray(data.leads) && data.leads.length>0){
         const leadsDeSheets = data.leads
-          .filter(l => l && l.nombre) // solo filas con datos reales
+          .filter(l => {
+            if(!l || !l.nombre) return false;
+            const nombre = (l.nombre||'').trim();
+            // Filtrar nombres claramente de prueba o muy cortos
+            if(nombre.length < 3) return false;
+            if(/^(asd|test|prueba|xxx|zzz)/i.test(nombre)) return false;
+            return true;
+          })
           .map(normalizarLead);
 
         // Reemplazar leads locales con los de Sheets
@@ -1393,7 +1403,7 @@ async function guardarCotizacion(){
     notas:document.getElementById('f-notas').value,estado:'Cotizado',
   };
   const leadData={
-    id:'L'+String(contadorLead++).padStart(3,'0'),
+    id:'L-'+Date.now()+'-'+Math.random().toString(36).substr(2,4),
     nombre,
     tel:cotizacion.tel,
     correo:cotizacion.correo,
@@ -1811,10 +1821,12 @@ async function guardarPago(){
 }
 
 async function saveLead(){
-  const nombre=document.getElementById('m-nombre').value;
-  if(!nombre){toast('Ingresa el nombre','rojo');return;}
+  const nombre=document.getElementById('m-nombre').value.trim();
+  const mtel=document.getElementById('m-tel').value.trim();
+  if(!nombre||nombre.length<3){toast('Ingresa el nombre completo (mín. 3 caracteres)','rojo');return;}
+  if(!mtel){toast('Ingresa un teléfono de contacto','rojo');return;}
   const lead={
-    id:'L'+String(contadorLead++).padStart(3,'0'),
+    id:'L-'+Date.now()+'-'+Math.random().toString(36).substr(2,4),
     nombre,tel:document.getElementById('m-tel').value,
     correo:document.getElementById('m-correo').value,
     tipo:document.getElementById('m-tipo').value,
