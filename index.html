@@ -1003,40 +1003,95 @@ function apiCall(params){
     document.head.appendChild(script);
   });
 }
+function parsearFecha(f){
+  // Convierte cualquier formato de fecha a DD/MM/YYYY o '' si no es válida
+  if(!f||f===''||f==='false') return '';
+  const s=f.toString().trim();
+  // Ya está en formato correcto DD/MM/YYYY
+  if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
+  // Formato ISO: 2026-12-12T03:00:00.000Z
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){
+    const d=new Date(s);
+    if(!isNaN(d.getTime())) return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  }
+  // Formato largo: "Sat Dec 12 2026 00:00:00..."
+  const d=new Date(s);
+  if(!isNaN(d.getTime())&&d.getFullYear()>2020){
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  }
+  return '';
+}
+
+function esEmail(s){ return s&&/^[^@]+@[^@]+\.[^@]+$/.test(s.trim()); }
+function esTipo(s){ return ['Matrimonio','Evento familiar','Celebración','Evento corporativo','Arriendo salón','Licenciatura de 8° básico'].includes(s); }
+function esEstado(s){ return ['Primer contacto','Info enviada','Visita agendada','Cotizado','En negociación','Reservado','Perdido','Descartado'].includes(s); }
+function esCanal(s){ return ['WhatsApp','Correo','Instagram','Referido','Visita directa','Otro'].includes(s); }
+
 function normalizarLead(l){
-  // Parsear pagos de forma segura
-  let pagos = [];
-  if(Array.isArray(l.pagos)){
-    pagos = l.pagos;
-  } else if(typeof l.pagos === 'string' && l.pagos.trim().startsWith('[')){
-    try{ pagos = JSON.parse(l.pagos); }catch(e){ pagos = []; }
+  // Pagos
+  let pagos=[];
+  if(Array.isArray(l.pagos)) pagos=l.pagos;
+  else if(typeof l.pagos==='string'&&l.pagos.trim().startsWith('[')){ try{pagos=JSON.parse(l.pagos);}catch(e){} }
+
+  // Archivado
+  const archivado=l.archivado==='true'||l.archivado===true;
+
+  // Monto
+  const monto=parseInt((l.monto||'0').toString().replace(/[^0-9]/g,''))||0;
+
+  // Recuperar campos aunque estén en columnas equivocadas
+  // Buscar email en cualquier campo
+  let correo=l.correo||'';
+  let tipo=l.tipo||'';
+  let canal=l.canal||'';
+  let estado=l.estado||'';
+  let fecha=l.fecha||'';
+  let tel=(l.tel||'').toString();
+  let notas=l.notas||'';
+
+  // Si correo no es email, buscar en otros campos
+  if(!esEmail(correo)){
+    const campos=[l.tipo,l.canal,l.estado,l.fecha,l.notas];
+    for(const c of campos){ if(esEmail(c)){correo=c;break;} }
+  }
+  // Si tipo no es tipo válido, buscar
+  if(!esTipo(tipo)){
+    const campos=[l.correo,l.canal,l.estado,l.fecha,l.notas];
+    for(const c of campos){ if(esTipo(c)){tipo=c;break;} }
+    if(!esTipo(tipo)) tipo='Matrimonio';
+  }
+  // Si estado no es válido, buscar
+  if(!esEstado(estado)){
+    const campos=[l.correo,l.tipo,l.canal,l.fecha,l.notas,l.monto];
+    for(const c of campos){ if(esEstado(c)){estado=c;break;} }
+    if(!esEstado(estado)) estado='Primer contacto';
+  }
+  // Si canal no es válido, buscar
+  if(!esCanal(canal)){
+    const campos=[l.correo,l.tipo,l.estado,l.fecha,l.notas];
+    for(const c of campos){ if(esCanal(c)){canal=c;break;} }
+    if(!esCanal(canal)) canal='WhatsApp';
+  }
+  // Fecha: buscar el campo que sea una fecha válida
+  let fechaParsed=parsearFecha(fecha);
+  if(!fechaParsed){
+    const campos=[l.correo,l.tipo,l.canal,l.estado,l.notas];
+    for(const c of campos){ const p=parsearFecha(c); if(p){fechaParsed=p;break;} }
   }
 
-  // Normalizar archivado (puede venir como string "true"/"false" desde Sheets)
-  const archivado = l.archivado==='true' || l.archivado===true;
-
-  // Normalizar monto
-  const monto = parseInt((l.monto||'0').toString().replace(/[^0-9]/g,''))||0;
-
-  // Estado válido
-  const estadosValidos = ['Primer contacto','Info enviada','Visita agendada',
-    'Cotizado','En negociación','Reservado','Perdido','Descartado'];
-  const estado = estadosValidos.includes(l.estado) ? l.estado : 'Primer contacto';
+  // Filtrar leads con nombre vacío o claramente de prueba
+  const nombre=(l.nombre||'').trim();
 
   return {
-    id: l.id || ('L-'+Date.now()+'-'+Math.random().toString(36).substr(2,4)),
-    nombre: (l.nombre||'').trim() || '—',
-    tel: (l.tel||'').toString().trim(),
-    correo: (l.correo||'').trim(),
+    id: l.id||('L-'+Date.now()+'-'+Math.random().toString(36).substr(2,4)),
+    nombre: nombre||'—',
+    tel: tel.trim(),
+    correo: correo.trim(),
     rut: (l.rut||'').trim(),
-    tipo: l.tipo || 'Matrimonio',
-    fecha: (l.fecha||'').toString().trim(),
-    canal: l.canal || 'WhatsApp',
-    estado,
-    monto,
-    notas: (l.notas||'').trim(),
-    pagos,
-    archivado,
+    tipo, canal, estado,
+    fecha: fechaParsed,
+    monto, notas: notas.trim(),
+    pagos, archivado,
   };
 }
 
@@ -1069,12 +1124,17 @@ async function syncSheets(){
       // EVENTOS: agregar los que no estén ya
       if(data.eventos && Array.isArray(data.eventos)){
         data.eventos.forEach(e=>{
-          if(e && e.fecha && !eventos.find(x=>x.fecha===e.fecha)){
-            eventos.push({
-              fecha: e.fecha,
-              tipo: e.tipo||'Matrimonio',
-              cliente: e.cliente||''
-            });
+          if(e && e.fecha){
+            const fechaN=parsearFecha(e.fecha)||e.fecha;
+            // Convertir a formato YYYY-MM-DD para el calendario
+            let fechaCal=fechaN;
+            if(/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(fechaN)){
+              const p=fechaN.split('/');
+              fechaCal=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+            }
+            if(!eventos.find(x=>x.fecha===fechaCal)){
+              eventos.push({fecha:fechaCal,tipo:e.tipo||'Matrimonio',cliente:e.cliente||''});
+            }
           }
         });
       }
