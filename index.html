@@ -1119,15 +1119,9 @@ async function syncSheets(){
           .filter(l => {
             if(!l || !l.nombre) return false;
             const nombre = (l.nombre||'').trim();
-            if(nombre.length < 3) return false;
-            if(/^(asd|test|prueba|xxx|zzz|L001$)/i.test(nombre)) return false;
-            // Filtrar filas donde campos clave son #ERROR!
-            if((l.id||'').includes('ERROR')) return false;
-            // Filtrar si no tiene estado válido
-            const estados=['Primer contacto','Info enviada','Visita agendada',
-              'Cotizado','En negociación','Reservado','Perdido','Descartado'];
-            const est = (l.estado||'').trim();
-            if(est && !estados.includes(est)) return false;
+            // Solo filtrar nombres claramente basura
+            if(nombre.length < 2) return false;
+            if(/^(asdsa?|asds?$|prueba$|xxx$|zzz$)/i.test(nombre)) return false;
             return true;
           })
           .map(normalizarLead);
