@@ -1095,7 +1095,7 @@ function normalizarLead(l){
   return {
     id: l.id||('L-'+Date.now()+'-'+Math.random().toString(36).substr(2,4)),
     nombre: nombre||'—',
-    tel: tel.trim(),
+    tel: tel.replace(/#ERROR!/g,'').replace(/^00/,'+').trim(),
     correo: correo.trim(),
     rut: (l.rut||'').trim(),
     tipo, canal, estado,
@@ -1119,9 +1119,15 @@ async function syncSheets(){
           .filter(l => {
             if(!l || !l.nombre) return false;
             const nombre = (l.nombre||'').trim();
-            // Filtrar nombres claramente de prueba o muy cortos
             if(nombre.length < 3) return false;
-            if(/^(asd|test|prueba|xxx|zzz)/i.test(nombre)) return false;
+            if(/^(asd|test|prueba|xxx|zzz|L001$)/i.test(nombre)) return false;
+            // Filtrar filas donde campos clave son #ERROR!
+            if((l.id||'').includes('ERROR')) return false;
+            // Filtrar si no tiene estado válido
+            const estados=['Primer contacto','Info enviada','Visita agendada',
+              'Cotizado','En negociación','Reservado','Perdido','Descartado'];
+            const est = (l.estado||'').trim();
+            if(est && !estados.includes(est)) return false;
             return true;
           })
           .map(normalizarLead);
@@ -1412,7 +1418,7 @@ async function guardarCotizacion(){
   const leadData={
     id:'L-'+Date.now()+'-'+Math.random().toString(36).substr(2,4),
     nombre,
-    tel:cotizacion.tel,
+    tel:cotizacion.tel||'',
     correo:cotizacion.correo,
     rut:cotizacion.rut,
     tipo:cotizacion.tipo,
