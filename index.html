@@ -158,17 +158,21 @@
   .dia.vf{font-weight:700;cursor:pointer;}
   .dia.disp{background:var(--vs);color:var(--mat);}
   .dia.disp:hover{background:var(--vc);}
-  .dia.mat{background:var(--mat-s);color:var(--mat-t);border:1.5px solid var(--vm);}
-  .dia.fam{background:var(--fam-s);color:var(--fam-t);border:1.5px solid var(--fam);}
-  .dia.cel{background:var(--cel-s);color:var(--cel-t);border:1.5px solid var(--cel);}
-  .dia.corp{background:var(--corp-s);color:var(--corp-t);border:1.5px solid var(--corp);}
+  .dia.mat{background:#1F4E2C;color:#EEF2D2;border:2px solid #0D3B1E;font-weight:700;}
+  .dia.mat:hover{background:#2E7D46;}
+  .dia.fam{background:#C62828;color:white;border:2px solid #8B0000;font-weight:700;}
+  .dia.fam:hover{background:#E53935;}
+  .dia.cel{background:#E65100;color:white;border:2px solid #BF360C;font-weight:700;}
+  .dia.cel:hover{background:#F57C00;}
+  .dia.corp{background:#1565C0;color:white;border:2px solid #0D47A1;font-weight:700;}
+  .dia.corp:hover{background:#1976D2;}
   .dia.norm{color:#CCC;}
   .dia.hoy{outline:2px solid var(--vm);outline-offset:1px;}
-  .dia.feriado{background:#FFF8E1;color:#F57F17;font-size:9px;}
-  .dia.feriado-disp{background:#FFF3CD;color:#856404;border:1.5px solid #F0AD00;font-weight:700;}
-  .dia.feriado-disp:hover{background:#FFE69C;}
-  .dia.bloqueado-dia{background:#EEEEEE;color:#999;border:1.5px solid #BDBDBD;font-weight:500;}
-  .dia.bloqueado-dia:hover{background:#E0E0E0;}
+  .dia.feriado{background:#FFFDE7;color:#F9A825;font-size:9px;}
+  .dia.feriado-disp{background:#FFF9C4;color:#F57F17;border:1px dashed #F0AD00;}
+  .dia.feriado-disp:hover{background:#FFF3CD;}
+  .dia.bloqueado-dia{background:#424242;color:#EEE;border:1.5px solid #212121;font-weight:500;}
+  .dia.bloqueado-dia:hover{background:#616161;}
 
   /* PIPELINE */
   .pip-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;}
@@ -466,12 +470,12 @@
     </div>
     <div class="leyenda">
       <div class="ley-i"><div class="ley-dot" style="background:var(--vs);border:1.5px solid var(--vm)"></div>Disponible</div>
-      <div class="ley-i"><div class="ley-dot" style="background:var(--mat-s);border:1.5px solid var(--vm)"></div>Matrimonio</div>
-      <div class="ley-i"><div class="ley-dot" style="background:var(--fam-s);border:1.5px solid var(--fam)"></div>Evento familiar</div>
-      <div class="ley-i"><div class="ley-dot" style="background:var(--cel-s);border:1.5px solid var(--cel)"></div>Celebración</div>
-      <div class="ley-i"><div class="ley-dot" style="background:var(--corp-s);border:1.5px solid var(--corp)"></div>Corporativo</div>
-      <div class="ley-i"><div class="ley-dot" style="background:#FFF8E1;border:1.5px solid #F0AD00"></div>Feriado disponible</div>
-      <div class="ley-i"><div class="ley-dot" style="background:#EEE;border:1.5px solid #BDBDBD"></div>Bloqueado</div>
+      <div class="ley-i"><div class="ley-dot" style="background:#1F4E2C;border:2px solid #0D3B1E"></div>Matrimonio</div>
+      <div class="ley-i"><div class="ley-dot" style="background:#C62828;border:2px solid #8B0000"></div>Evento familiar</div>
+      <div class="ley-i"><div class="ley-dot" style="background:#E65100;border:2px solid #BF360C"></div>Celebración</div>
+      <div class="ley-i"><div class="ley-dot" style="background:#1565C0;border:2px solid #0D47A1"></div>Corporativo</div>
+      <div class="ley-i"><div class="ley-dot" style="background:#424242;border:1.5px solid #212121"></div>Bloqueado</div>
+      <div class="ley-i"><div class="ley-dot" style="background:#FFF9C4;border:1px dashed #F0AD00"></div>Feriado</div>
     </div>
     <div class="cal-grid" id="cal-grid"></div>
   </div>
@@ -565,8 +569,10 @@
           <option value="Primer contacto">Primer contacto</option>
           <option value="Info enviada">Info enviada</option>
           <option value="Visita agendada">Visita agendada</option>
+          <option value="Post visita">Post visita</option>
           <option value="Cotizado">Cotización enviada</option>
           <option value="En negociación">En negociación</option>
+          <option value="Pendiente reserva">Aceptado — pendiente reserva</option>
         </select>
       </div>
       <div class="mfield"><label>Notas</label><textarea id="m-notas" placeholder="Preferencias, observaciones..."></textarea></div>
@@ -655,7 +661,13 @@
     <h3>Registrar pago</h3>
     <div class="mfields">
       <div class="mfield"><label>Tipo de pago</label>
-        <select id="p-tipo"><option>Reserva</option><option>Abono</option><option>Saldo final</option></select>
+        <select id="p-tipo">
+          <option value="Reserva 1° cuota">Reserva — 1° cuota ($250.000)</option>
+          <option value="Reserva 2° cuota">Reserva — 2° cuota (resto reserva)</option>
+          <option value="Abono">Abono intermedio</option>
+          <option value="Saldo final">Saldo final (3 semanas antes)</option>
+          <option value="Pago tarjeta">Pago tarjeta crédito (+3%)</option>
+        </select>
       </div>
       <div class="mfield"><label>Monto</label>
       <div style="position:relative">
@@ -802,16 +814,17 @@ const ADICIONALES = [
 ];
 
 const ETAPAS = [
-  {key:'Primer contacto',  label:'Primer contacto',   color:'#78909C', desc:'Llegó la consulta, aún no se ha enviado info'},
-  {key:'Info enviada',     label:'Info enviada',       color:'#7B1FA2', desc:'Se envió portafolio / presentación'},
-  {key:'Visita agendada',  label:'Visita agendada',   color:'#1565C0', desc:'Tienen visita guiada confirmada'},
-  {key:'Cotizado',         label:'Cotización enviada', color:'#E65100', desc:'Recibieron propuesta económica'},
-  {key:'En negociación',   label:'En negociación',    color:'#F57F17', desc:'Está evaluando, hubo conversación'},
-  {key:'Reservado',        label:'Reservado ✓',       color:'#2E7D46', desc:'Pagó reserva — fecha bloqueada'},
+  {key:'Primer contacto',     label:'Primer contacto',          color:'#78909C', desc:'Llegó la consulta — aún no se ha enviado info', alerta:null},
+  {key:'Info enviada',        label:'Info enviada',              color:'#7B1FA2', desc:'Se envió portafolio — hacer seguimiento en 3 días', alerta:3},
+  {key:'Visita agendada',     label:'Visita agendada',          color:'#1565C0', desc:'Visita confirmada — registrar en Google Calendar', alerta:null},
+  {key:'Post visita',         label:'Post visita',              color:'#0277BD', desc:'Hacer seguimiento 3 días después de la visita', alerta:3},
+  {key:'Cotizado',            label:'Cotización enviada',        color:'#E65100', desc:'Recibieron propuesta — 10 días para decidir', alerta:10},
+  {key:'En negociación',      label:'En negociación',           color:'#F57F17', desc:'Están evaluando — hubo conversación activa', alerta:null},
+  {key:'Pendiente reserva',   label:'Aceptado — pendiente reserva', color:'#558B2F', desc:'Aceptaron — esperando pago de reserva', alerta:null},
 ];
 const ETAPAS_CERRADAS = [
-  {key:'Perdido', label:'Perdido', color:'#C62828'},
-  {key:'Descartado', label:'Descartado', color:'#9E9E9E'},
+  {key:'Perdido',     label:'Perdido',     color:'#C62828'},
+  {key:'Descartado',  label:'Descartado',  color:'#9E9E9E'},
 ];
 
 const DIAS_S=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
@@ -891,6 +904,7 @@ function guardarSoloLead(){
     fecha:'',
     archivado:false,
     estado:'Primer contacto',
+    fechaIngreso: new Date().toISOString(),
     monto:0,
     notas:'',
     pagos:[],
@@ -1687,6 +1701,14 @@ function showTip(e,t){if(!t)return;const el=document.getElementById('tip');el.te
 function hideTip(){document.getElementById('tip').classList.remove('on');}
 
 // ── PIPELINE ───────────────────────────────────────────────────────────────
+function alertaDias(lead, etapa){
+  if(!etapa.alerta || !lead.fechaIngreso) return '';
+  const dias = Math.floor((Date.now() - new Date(lead.fechaIngreso).getTime()) / 864e5);
+  if(dias >= etapa.alerta){
+    return `<span style="margin-left:6px;font-size:10px;background:#FFEBEE;color:#C62828;padding:2px 6px;border-radius:10px;font-weight:600">⚠ ${dias}d</span>`;
+  }
+  return '';
+}
 function renderKanban(){
   const k=document.getElementById('kanban');
   k.innerHTML='';
@@ -1716,7 +1738,7 @@ function renderKanban(){
             </div>`).join('');
           return `
             <div class="lead-card">
-              <div class="lead-name">${l.nombre}</div>
+              <div class="lead-name">${l.nombre}${alertaDias(l,etapa)}</div>
               <div class="lead-meta">${l.fecha||'Sin fecha'} · ${l.tel||''}</div>
               <div class="lead-tags">
                 <span class="tag ${tagClass(l.tipo)}">${l.tipo}</span>
@@ -1775,7 +1797,7 @@ async function avanzarLead(id,nuevaEtapa){
   if(!lead)return;
   lead.estado=nuevaEtapa;
   try{await apiCall({action:'updateLead',data:JSON.stringify(lead)});}catch(e){}
-  if(nuevaEtapa==='Reservado'&&lead.fecha){
+  if((nuevaEtapa==='Reservado'||nuevaEtapa==='Pendiente reserva')&&nuevaEtapa==='Reservado'&&lead.fecha){
     const parts=lead.fecha.split('/');
     if(parts.length===3){
       const fStr=`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
